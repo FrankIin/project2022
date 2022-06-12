@@ -19,8 +19,7 @@ folder_read = "C:/Users/Vosko/Desktop/School/measurements/testdata/Sensor_Data_T
 # location of the matlab folder where you want to save
 folder_write = "C:/Users/Vosko/Desktop/School/measurements/testdata/Sensor_Data_Test/Matlab/"
 
-# format for saving files, MAKE SURE %M%S IS ATTACHED AND ON THE END OF STRING
-# for now, dont put "-" in string, otherwise it will be replaced with "/" (line 54)
+# format for saving files
 filename_format = "%Y%m%d_%H%M%S"
 
 # formatfrom is format for the date and time that is being read from tdms file (recordStartTime and wf_start_time)
@@ -73,8 +72,8 @@ def get_previous_file(previous_file, current_file, units, frame_rates, new_start
         [i[0] for i in previous_file[matlab_words_stat[1]]])  # statSampleRate
     previous_channel_names = np.array([])
     for idx in range(len(previous_unit_file)):
-        channel_name = previous_file[matlab_words_stat[2] +
-                                     '{0}'.format(idx + 1)][0]  # statChannelName
+        channel_name = previous_file[matlab_words_stat[2] +   # statChannelName
+                                     '{0}'.format(idx + 1)][0]  
         previous_channel_names = np.append(
             previous_channel_names, [channel_name])
 
@@ -102,18 +101,17 @@ def get_previous_file(previous_file, current_file, units, frame_rates, new_start
         return False, False
 
 
-def check_for_nan(length, values, time, sample_rate, format, total_time):
-    new_format = format.replace("%M%S", "0000")
-    if total_time * sample_rate == length:
-        return new_format, values
+def check_for_nan(values, start_time, sample_rate, total_time):
+    if total_time * sample_rate == len(values):
+        return values
     else:
-        seconds_passed = (time.minute * 60) + time.second
+        seconds_passed = (start_time.minute * 60) + start_time.second
         values_passed = seconds_passed * sample_rate
         empty_array = np.empty(values_passed)
         empty_array[:] = np.NaN
         new_values = np.append(empty_array, values)
         if len(new_values) == total_time * sample_rate:
-            return new_format, new_values
+            return new_values
         else:
             missing_values = (total_time * sample_rate) - len(new_values)
             try:
@@ -122,7 +120,7 @@ def check_for_nan(length, values, time, sample_rate, format, total_time):
                 new_values = np.append(new_values, empty_array)
             except:
                 print(sys.exc_info()[0], "occurred")
-            return new_format, new_values
+            return new_values
 
 
 def write_to_terminal(values):
@@ -186,10 +184,11 @@ if __name__ == '__main__':
     # read all files in folder for checking multiple files in the same hour
     read_all_files = [f for f in listdir(
         folder_read) if isfile(join(folder_read, f))]
+
     # remove invalid files
     tdms_files = []
     for file in read_all_files:
-        if "_index" not in file:
+        if "tdms" in file and "_index" not in file:
             tdms_files.append(file)
 
     for file in tdms_files:
@@ -219,7 +218,7 @@ if __name__ == '__main__':
                 unit_values = [tdms_file[group.name][channel.name].properties[tdms_words[1]]
                                for channel in group_channels]
                 # retrieve sample rate from every channel
-                sample_rate_values = [  # tdms_words[2]: wf_samples
+                sample_rate_values = [                           # tdms_words[2]: wf_samples
                     tdms_file[group.name][channel.name].properties[tdms_words[2]] for channel in group_channels]
                 max_values = [time_in_package_sec *
                               i for i in sample_rate_values]
@@ -232,24 +231,37 @@ if __name__ == '__main__':
                     group.name, date_time, folder_write)
 
                 if previous_file_from_hour:
-                    # retrieves all the information of previous file in an hour
-                    # sum_check is used to check whether
+                    # retrieves all the information of previous file in same hour
+                    # valid_check is true when previous file matches current file
                     valid_check, new_channel_values = get_previous_file(
                         previous_file_from_hour, group_channels, unit_values, sample_rate_values, start_time_values)
-
                 else:
+                    # when no other files are found from same hour
                     new_channel_values = False
                     valid_check = True
+
+                # file needs to be checked for full contents
+                # if not, nans will be added to fill up file
                 correctedValues = [[] for x in group_channels]
+
+                # change format for the title of the matlab files -> minutes and hours are reset
+                new_format = filename_format.replace("%M%S", "0000")
                 for idx, channel in enumerate(group_channels):
+                    # when more files in same hour are found, pass through the correct data
                     if new_channel_values:
                         channel = new_channel_values[idx]
+
+                        # change time from current file to previous file to fill up correctly with nans
                         start_time_values[idx] = start_time_values[idx].replace(
                             minute=0, second=0)
-                    new_format, channel_values = check_for_nan(len(
-                        channel), channel, start_time_values[idx], sample_rate_values[idx], filename_format, time_in_package_sec)
-                    correctedValues[idx] = np.append(
-                        correctedValues[idx], channel_values)
+
+                    # returns data filled up correctly with nans for full file size
+                    channel_values = check_for_nan(
+                        channel, start_time_values[idx], sample_rate_values[idx], time_in_package_sec)
+                    correctedValues[idx] = np.append( correctedValues[idx], channel_values)
+                # writes usefull information to terminal
                 write_to_terminal(correctedValues)
+                
+                # writes all channel values to matlab file
                 write_to_matlab(group_channels, group.name, date_time, correctedValues, sample_rate_values,
                                 unit_values, station_name, value_lat, value_long, new_format, valid_check)
