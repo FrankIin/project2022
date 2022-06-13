@@ -15,9 +15,9 @@ import numpy as np
 set(pytz.all_timezones_set)
 
 # location of the tdms folder you want to read
-folder_read = "C:/Users/Vosko/Desktop/School/measurements/testdata/Sensor_Data_Test/Sensor_Data_Test"
+folder_read = "C:/Users/researcher/Desktop/KCNR_Students_Test_Data/MONSTER_Test_Data/Sensor_Data_Test"
 # location of the matlab folder where you want to save
-folder_write = "C:/Users/Vosko/Desktop/School/measurements/testdata/Sensor_Data_Test/Matlab/"
+folder_write = "C:/Users/researcher/Desktop/KCNR_Students_Test_Data/MONSTER_Test_Data/matlab"
 # format for saving the matlab files in correct folder: matlab/station_name/year/month/file
 folder_write_format = "%Y/%B"  # --> 2022/January
 folders = folder_write_format.split("/")
@@ -100,7 +100,7 @@ def get_info(file, group, key_words, full_size_time):
     unit_values = [file[group.name][channel.name].properties[key_words[1]]
                    for channel in group_channels]
     # retrieve sample rate from every channel
-    sample_rate_values = [                      # key_words[2]: wf_samples
+    sample_rate_values = [  # key_words[2]: wf_samples
         file[group.name][channel.name].properties[key_words[2]] for channel in group_channels]
 
     max_values = [full_size_time *
@@ -150,7 +150,7 @@ def append_files(previous_file, current_file, units, sample_rates, new_start_tim
         [i[0] for i in previous_file[words_matlab[1]]])  # statSampleRate
     previous_channel_names = np.array([])
     for idx in range(len(previous_unit_file)):
-        channel_name = previous_file[words_matlab[2] +   # statChannelName
+        channel_name = previous_file[words_matlab[2] +  # statChannelName
                                      '{0}'.format(idx + 1)][0]
         previous_channel_names = np.append(
             previous_channel_names, [channel_name])
@@ -168,7 +168,7 @@ def append_files(previous_file, current_file, units, sample_rates, new_start_tim
         for idx in range(len(combined_values)):
             # retrieve where the first value starts from current file in a full size file
             current_file_time = new_start_time[idx].minute * \
-                60 + new_start_time[idx].second
+                                60 + new_start_time[idx].second
             values_to_remove = (time_in_package_sec -
                                 current_file_time) * sample_rate_values[idx]
             # retrieve all neccesary data from previous file (only retrieve data before current file)
@@ -216,7 +216,8 @@ def check_for_nan(values, start_time, sample_rate, total_time):
             return new_values
 
 
-def write_to_matlab(folder_write, channels, time, values, sample_rate, units, station, latitude, longitude, format, folders):
+def write_to_matlab(folder_write, channels, time, values, sample_rate, units, station, latitude, longitude, format,
+                    folders):
     """
     write_to_matlab writes the data to specified location=
     :param folder: location in which files will be saved
@@ -258,13 +259,13 @@ def write_to_matlab(folder_write, channels, time, values, sample_rate, units, st
         sio.matlab.savemat(matlab_file + '.mat', dict_values, oned_as='column')
     except FileExistsError:
         matlab_file = pjoin(matlab_dir, '/'.join(time.strftime(folder)
-                            for folder in folders), file)
+                                                 for folder in folders), file)
         sio.matlab.savemat(matlab_file + '.mat', dict_values, oned_as='column')
 
 
 def write_to_terminal(values, channel_names, group_name, date_time):
     """
-    write_to_terminal writes usefull information in the terminal about the channel values
+    write_to_terminal writes useful information in the terminal about the channel values
 
     :param values: channel data of group
     :param channel_names: channel names of group
@@ -312,7 +313,7 @@ if __name__ == '__main__':
     dupe_check = np.empty(0)
     for file in tdms_files:
         # open tdms file (Does not read the whole file immediately but has the file open to read from when asked)
-        # preferrable for large tdms files which cannot save all values in memory
+        # preferable for large tdms files which cannot save all values in memory
         with TdmsFile.open('{0}/{1}'.format(folder_read, file)) as tdms_file:
 
             # make a file for each group
@@ -321,7 +322,7 @@ if __name__ == '__main__':
                 try:
                     dupe_check = check_for_mail(np.average(
                         percentage_valid), date_time_cf, dupe_check)
-                except:
+                except NameError:
                     print('Skipping first run')
 
                 date_time_cf, unit_values, sample_rate_values, max_values, start_time_values = get_info(
@@ -329,7 +330,8 @@ if __name__ == '__main__':
 
                 # check if there's more than one file from same hour
                 previous_file_from_hour = check_previous_files(
-                    pjoin(folder_write, station_name, date_time_cf.strftime(folder_write_format), date_time_cf.strftime("%Y%m%d_%H0000")))
+                    pjoin(folder_write, station_name, date_time_cf.strftime(folder_write_format),
+                          date_time_cf.strftime("%Y%m%d_%H0000")))
 
                 if previous_file_from_hour:
                     # retrieves all the information of previous file from same hour
@@ -346,8 +348,8 @@ if __name__ == '__main__':
                     # change format for title of matlab file -> minutes and seconds are reset
                     new_format = format_file_name.replace("%M%S", "0000")
                 else:
-                    # valid_check is only false when two files from same hour have different headers
-                    # title of matlab file will maintain the minutes and seconds to prevent overriding files that cannot merge
+                    # valid_check is only false when two files from same hour have different headers title of matlab
+                    # file will maintain the minutes and seconds to prevent overriding files that cannot merge
                     new_format = format_file_name
 
                 # file needs to be checked for full contents
@@ -372,6 +374,6 @@ if __name__ == '__main__':
                 write_to_matlab(folder_write, group.channels(), date_time_cf, correctedValues, sample_rate_values,
                                 unit_values, station_name, value_lat, value_long, new_format, folders)
 
-                # writes usefull information to terminal
+                # writes useful information to terminal
                 percentage_valid = write_to_terminal(correctedValues, [
-                                                     channel.name for channel in group.channels()], group.name, date_time_cf)
+                    channel.name for channel in group.channels()], group.name, date_time_cf)
